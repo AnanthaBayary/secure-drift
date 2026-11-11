@@ -49,11 +49,30 @@
 
 ```bash
 # 1. Clone
-git clone https://github.com/YOUR_USERNAME/secure-drift.git
+git clone https://github.com/AnanthaBayary/secure-drift.git
 cd secure-drift
 
 # 2. Install
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 
 # 3. Run
 streamlit run app.py
+```
+
+The detector loads `sample_data/` relative to the project, so it works from
+any working directory on Linux, macOS, or Windows.
+
+## Project status
+
+This repository contains a hackathon proof of concept. The detector supports
+the included JSONL baselines and CSV event history, normalizes source severity
+values, identifies approved versus unapproved changes, and presents the
+results in the Streamlit dashboard.
+
+## Recommended next steps
+
+1. Add read-only connectors for AWS, Azure, firewalls, and endpoint platforms.
+2. Store baselines and drift events in a durable database instead of local files.
+3. Add alert delivery for critical and unapproved drifts.
+4. Evaluate precision and recall against labeled events before enabling
+   automated remediation.

@@ -1,46 +1,36 @@
 import pandas as pd
 import json
-import os
+from datetime import datetime
+from pathlib import Path
 
 class DriftDetector:
     def __init__(self):
         """Initialize the drift detector"""
         self.baselines = {}
+        self.data_dir = Path(__file__).resolve().parent / "sample_data"
         self.load_baselines()
     
     def load_baselines(self):
         """Load baseline configurations from JSON file"""
+        baseline_path = self.data_dir / "baseline_configs.json"
         try:
-            baseline_path = 'C:/Users/Admin/Desktop/Projects/Hackathon/sample_data/baseline_configs.json'
-            
-            if os.path.exists(baseline_path):
-                with open(baseline_path, 'r') as f:
-                    content = f.read()
-                    # Try to parse JSON - might have multiple objects
-                    try:
-                        self.baselines = json.loads(content)
-                    except json.JSONDecodeError:
-                        # Try to load line by line if it's JSONL format
-                        lines = content.strip().split('\n')
-                        self.baselines = {}
-                        for line in lines:
-                            try:
-                                data = json.loads(line)
-                                if isinstance(data, dict):
-                                    self.baselines.update(data)
-                            except:
-                                pass
-                
-                if self.baselines:
-                    print(f"✅ Loaded {len(self.baselines)} baselines")
-                    return
-            
-            print("⚠️ Using default baselines")
+            with baseline_path.open("r", encoding="utf-8") as file:
+                records = [json.loads(line) for line in file if line.strip()]
+        except (FileNotFoundError, json.JSONDecodeError) as error:
+            print(f"⚠️ Could not load {baseline_path}: {error}")
             self.create_default_baselines()
-            
-        except Exception as e:
-            print(f"Error: {e}")
+            return
+
+        self.baselines = {
+            record["control_id"]: record
+            for record in records
+            if isinstance(record, dict) and record.get("control_id")
+        }
+        if not self.baselines:
+            print("⚠️ No valid baselines found; using defaults")
             self.create_default_baselines()
+            return
+        print(f"✅ Loaded {len(self.baselines)} baselines")
     
     def create_default_baselines(self):
         """Create default baselines"""
@@ -76,22 +66,17 @@ class DriftDetector:
     
     def load_data(self):
         """Load drift events from CSV file"""
+        csv_path = self.data_dir / "config_drift_events.csv"
         try:
-            csv_path = 'C:/Users/Admin/Desktop/Projects/Hackathon/sample_data/config_drift_events.csv'
-            
-            if os.path.exists(csv_path):
-                df = pd.read_csv(csv_path)
-                print(f"✅ Loaded {len(df)} events")
-                print(f"📊 Columns: {df.columns.tolist()}")
-                return df
-            else:
-                print(f"❌ File not found")
-                return self.create_sample_data()
-            
-        except Exception as e:
-            print(f"Error: {e}")
+            df = pd.read_csv(csv_path)
+        except (FileNotFoundError, pd.errors.ParserError) as error:
+            print(f"⚠️ Could not load {csv_path}: {error}")
             return self.create_sample_data()
-    
+
+        print(f"✅ Loaded {len(df)} events")
+        print(f"📊 Columns: {df.columns.tolist()}")
+        return df
+
     def load_drift_events(self):
         """Alias for load_data"""
         return self.load_data()
@@ -114,7 +99,7 @@ class DriftDetector:
         for _, row in df.iterrows():
             # Use control_name as the identifier
             control_name = row.get('control_name')
-            if pd.isna(control_name):
+            if pd.isna(control_name) or not str(control_name).strip():
                 continue
             
             # Get current and baseline values
@@ -124,41 +109,40 @@ class DriftDetector:
             # A drift exists if current != baseline
             if current_value != baseline_value:
                 # Determine risk level based on severity column or defaults
-                severity = row.get('severity', 'MEDIUM')
-                if 'high' in str(severity).lower():
-                    risk_level = "HIGH"
-                    risk_score = 80
-                elif 'critical' in str(severity).lower():
-                    risk_level = "CRITICAL"
-                    risk_score = 95
-                else:
-                    risk_level = "MEDIUM"
-                    risk_score = 60
+                risk_level, risk_score = self._risk_from_severity(row.get('severity'))
                 
                 # Get additional info
                 change_type = row.get('change_type', 'Unknown')
+                change_type = 'Unknown' if pd.isna(change_type) else str(change_type)
                 change_date = row.get('change_date', 'Unknown')
                 operator = row.get('operator_name', row.get('operator_email', 'Unknown'))
+                operator = 'Unknown' if pd.isna(operator) else str(operator)
                 status = row.get('status', 'Unknown')
+                status = 'Unknown' if pd.isna(status) else str(status)
                 
                 # Check if approved (based on status or approver fields)
                 approver = row.get('approver_name', row.get('approver_email', ''))
                 approved = bool(pd.notna(approver) and approver != '')
                 
                 # If status is Under_Review or Open, treat as not approved
-                if status in ['Under_Review', 'Open', 'Pending']:
+                if status.lower() in {'under_review', 'open', 'pending'}:
                     approved = False
                 
                 # Get compliance impact
                 compliance = row.get('compliance_impact', 'GDPR')
-                if pd.isna(compliance):
+                if pd.isna(compliance) or not str(compliance).strip():
                     compliance = 'NIST'
+                compliance = self._normalize_compliance(compliance)
                 
                 # Create drift record
                 drifts.append({
                     'control_id': control_name,
                     'name': row.get('control_name', control_name),
-                    'control_type': row.get('control_type', 'Unknown'),
+                    'control_type': (
+                        'Unknown'
+                        if pd.isna(row.get('control_type', 'Unknown'))
+                        else str(row.get('control_type', 'Unknown'))
+                    ),
                     'current': current_value,
                     'expected': baseline_value,
                     'risk_level': risk_level,
@@ -188,17 +172,36 @@ class DriftDetector:
         """Calculate days since change"""
         if change_date == 'Unknown' or pd.isna(change_date):
             return 30  # Default duration
-        
+
         try:
-            from datetime import datetime
-            if isinstance(change_date, str):
-                date_str = change_date.split()[0]  # Take YYYY-MM-DD part
-                change_dt = datetime.strptime(date_str, '%Y-%m-%d')
-                duration = (datetime.now() - change_dt).days
-                return max(1, duration)
-        except:
-            pass
-        return 30
+            change_dt = pd.to_datetime(change_date, errors="raise")
+            duration = (datetime.now() - change_dt.to_pydatetime()).days
+            return max(1, duration)
+        except (TypeError, ValueError, OverflowError):
+            return 30
+
+    def _risk_from_severity(self, severity):
+        """Normalize source severity while preserving the UI's risk levels."""
+        normalized = str(severity or "MEDIUM").strip().upper()
+        scores = {
+            "CRITICAL": ("CRITICAL", 95),
+            "HIGH": ("HIGH", 80),
+            "MEDIUM": ("MEDIUM", 60),
+            "LOW": ("LOW", 30),
+            "INFO": ("LOW", 15),
+        }
+        return scores.get(normalized, ("MEDIUM", 60))
+
+    def _normalize_compliance(self, compliance):
+        """Recover common framework abbreviations from the sample CSV."""
+        normalized = str(compliance).strip().upper()
+        return {
+            "IS": "ISO",
+            "GD": "GDPR",
+            "NI": "NIST",
+            "PC": "PCI",
+            "CI": "CIS",
+        }.get(normalized, normalized)
     
     def _get_remediation(self, control_name, change_type):
         """Generate remediation steps"""
