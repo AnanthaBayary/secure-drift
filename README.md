@@ -1,78 +1,102 @@
-# 🔒 SecureDrift - Security Control Drift Detection System
+# SecureDrift
 
-[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.28.0-red.svg)](https://streamlit.io/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+Security control drift and misconfiguration detection prototype created for a
+Société Générale hackathon challenge.
 
-## 📋 Overview
+SecureDrift compares security configuration changes with expected baseline
+values, prioritizes risky changes, maps them to compliance frameworks, and
+displays the results in an interactive Streamlit dashboard.
 
-**SecureDrift** detects configuration drifts across your infrastructure, assesses risk levels, and provides one-click remediation commands.
+## Problem
 
-### 🎯 The Problem
-- 40% of breaches come from misconfigured controls
-- 72+ hours spent on manual audits
-- No single source of truth for configurations
+Security controls change frequently across cloud, network, identity, logging,
+encryption, and endpoint systems. A change can be approved, temporary, or
+legitimate, but it can also weaken a control and remain unnoticed.
 
-### ✨ Features
-- 📊 Real-time dashboard with live metrics
-- 🎯 Risk scoring (Critical/High/Medium/Low)
-- 📋 Compliance mapping (NIST, GDPR, CIS)
-- 🔧 One-click remediation commands
-- 🔍 Search, filter, and export CSV
+The prototype focuses on:
 
----
+- Detecting changes where the current value differs from the baseline.
+- Classifying changes as Critical, High, Medium, or Low risk.
+- Identifying approved and unapproved changes.
+- Highlighting stale configuration drift.
+- Showing compliance impact for NIST, GDPR, CIS, ISO, and PCI.
+- Providing remediation guidance and CSV export from the dashboard.
 
-## 📊 Results
+## Current sample results
 
-| Metric | Value |
-|--------|-------|
-| Total Drifts | 505 |
-| Critical | 104 |
-| High | 91 |
-| Detection Rate | >85% |
-| False Positive | <15% |
+The included dataset contains 1,000 configuration events. Running the detector
+currently produces:
 
----
+| Metric | Result |
+| --- | ---: |
+| Configuration events | 1,000 |
+| Detected drifts | 505 |
+| Critical drifts | 104 |
+| High-risk drifts | 91 |
+| Medium-risk drifts | 135 |
+| Low-risk drifts | 175 |
 
-## 🏗️ Tech Stack
+These are results from the included sample data, not production performance
+measurements.
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | Streamlit |
-| Visualization | Plotly |
-| Data Processing | Pandas |
-| Runtime | Python 3.12+ |
+## How it works
 
----
+1. Load baseline controls from `sample_data/baseline_configs.json`.
+2. Load configuration events from `sample_data/config_drift_events.csv`.
+3. Compare each event's current and baseline values.
+4. Normalize severity, approval status, dates, and compliance labels.
+5. Present prioritized findings in the Streamlit dashboard.
 
-## 🚀 Quick Start
+## Project structure
+
+```text
+.
+├── app.py                         # Streamlit dashboard
+├── drift_engine.py                # Data loading and drift detection
+├── requirements.txt               # Python dependencies
+├── sample_data/
+│   ├── baseline_configs.json      # Example security baselines
+│   └── config_drift_events.csv    # Example configuration events
+└── Problem_02_Config_Drift/       # Original hackathon problem statement
+```
+
+## Run locally
+
+Requirements: Python 3.12 or later.
 
 ```bash
-# 1. Clone
 git clone https://github.com/AnanthaBayary/secure-drift.git
 cd secure-drift
-
-# 2. Install
 python -m pip install -r requirements.txt
-
-# 3. Run
 streamlit run app.py
 ```
 
-The detector loads `sample_data/` relative to the project, so it works from
-any working directory on Linux, macOS, or Windows.
+Then open the local URL shown by Streamlit, usually
+`http://localhost:8501`.
 
-## Project status
+The application resolves the sample data relative to the project directory,
+so it can be launched from any working directory.
 
-This repository contains a hackathon proof of concept. The detector supports
-the included JSONL baselines and CSV event history, normalizes source severity
-values, identifies approved versus unapproved changes, and presents the
-results in the Streamlit dashboard.
+## Limitations
 
-## Recommended next steps
+This is a hackathon proof of concept. It currently uses local sample files and
+does not connect directly to AWS, Azure, firewalls, endpoint platforms, or a
+SIEM. The remediation commands shown in the UI are recommendations only; the
+prototype does not execute changes against infrastructure.
 
-1. Add read-only connectors for AWS, Azure, firewalls, and endpoint platforms.
-2. Store baselines and drift events in a durable database instead of local files.
-3. Add alert delivery for critical and unapproved drifts.
-4. Evaluate precision and recall against labeled events before enabling
-   automated remediation.
+## Recommended production roadmap
+
+1. Add read-only collectors for AWS, Azure, firewalls, identity, and endpoint
+   platforms.
+2. Store baselines, events, approvals, and remediation history in a database.
+3. Add alert integrations for critical and unapproved drift.
+4. Add role-based access control and audit logging.
+5. Evaluate precision and recall using labeled historical events.
+6. Require approval and rollback safeguards before enabling automated
+   remediation.
+
+## Hackathon context
+
+The project addresses the challenge of continuously monitoring security control
+configuration drift, reducing manual compliance review, and explaining why a
+change may create security or regulatory risk.
