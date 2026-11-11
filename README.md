@@ -1,9 +1,13 @@
 # SecureDrift
 
-Security control drift and misconfiguration detection prototype created for a
-Société Générale hackathon challenge.
+## Hackathon context
 
-SecureDrift compares security configuration changes with expected baseline
+SecureDrift was created for a Société Générale hackathon challenge focused on
+continuously monitoring security control configuration drift, reducing manual
+compliance review, and explaining why a change may create security or
+regulatory risk.
+
+The project compares security configuration changes with expected baseline
 values, prioritizes risky changes, maps them to compliance frameworks, and
 displays the results in an interactive Streamlit dashboard.
 
@@ -83,20 +87,3 @@ This is a hackathon proof of concept. It currently uses local sample files and
 does not connect directly to AWS, Azure, firewalls, endpoint platforms, or a
 SIEM. The remediation commands shown in the UI are recommendations only; the
 prototype does not execute changes against infrastructure.
-
-## Recommended production roadmap
-
-1. Add read-only collectors for AWS, Azure, firewalls, identity, and endpoint
-   platforms.
-2. Store baselines, events, approvals, and remediation history in a database.
-3. Add alert integrations for critical and unapproved drift.
-4. Add role-based access control and audit logging.
-5. Evaluate precision and recall using labeled historical events.
-6. Require approval and rollback safeguards before enabling automated
-   remediation.
-
-## Hackathon context
-
-The project addresses the challenge of continuously monitoring security control
-configuration drift, reducing manual compliance review, and explaining why a
-change may create security or regulatory risk.
